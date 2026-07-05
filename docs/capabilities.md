@@ -1,0 +1,17 @@
+# AI Capabilities
+
+| Ability | Claude Code | Codex | Status | Purpose |
+|---|---|---|---|---|
+| `planAlign` / `plan-align` | `.claude/commands/planAlign.md` | `plugins/didala-plugin/skills/plan-align/SKILL.md` | Active | 飞书需求评审、方案设计、依赖检查、排期与评审文档回写 |
+
+## Capability Template
+
+新增能力时，建议记录：
+
+- 名称：命令名或 skill 名。
+- 适用平台：Claude Code / Codex / both。
+- 触发方式：用户自然语言或 slash command 示例。
+- 输入：需要用户提供的信息。
+- 输出：最终沉淀物或交付物。
+- 外部依赖：例如飞书、GitHub、数据库、内部系统等。
+- 安全边界：哪些动作需要用户确认。
