@@ -1,6 +1,6 @@
 {
   "name": "didala-plugin",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Reusable AI workflow skills shared across Codex and Claude Code.",
   "author": {
     "name": "zhangyu"

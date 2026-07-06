@@ -1,6 +1,6 @@
 # Didala Plugin
 
-自迭代 AI 能力仓库，同时维护 Codex 插件与 Claude Code command。当前首个能力是 `planAlign` / `plan-align`：用于飞书需求评审、方案设计、跨需求依赖检查、排期，并在用户确认后回写飞书评审文档。
+自迭代 AI 能力仓库，同时维护 Codex 插件与 Claude Code command。当前首个能力是 `planAlign` / `plan-align`：用于飞书需求评审、方案设计、跨需求依赖检查、按功能模块需求点排期，并在用户确认后回写飞书评审文档。
 
 ## Repository Layout
 
@@ -37,11 +37,13 @@ ln -sf "$(pwd)/.claude/commands/planAlign.md" ~/.claude/commands/planAlign.md
 /planAlign 方案:<模块名>
 ```
 
-如果不想用软链接，也可以复制文件：
+推荐使用软链接；后续更新仓库后，Claude Code command 会直接读到最新内容。如果不想用软链接，也可以复制文件：
 
 ```bash
 cp .claude/commands/planAlign.md ~/.claude/commands/planAlign.md
 ```
+
+复制安装时，每次仓库更新后都需要重新执行上述 `cp` 命令。
 
 ## Install For Codex
 
@@ -55,7 +57,7 @@ codex plugin add didala-plugin@didala-ai
 本机当前路径示例：
 
 ```bash
-codex plugin marketplace add /Users/zhangyu/IdeaProjects/Didala_plugin
+codex plugin marketplace add /Users/zz/IdeaProjects/Didala_plugin
 codex plugin add didala-plugin@didala-ai
 ```
 
@@ -69,7 +71,25 @@ codex plugin add didala-plugin@didala-ai
 使用 plan-align 给「模块名」单独出方案和排期
 ```
 
+## Current planAlign Behavior
+
+- 排期按功能模块需求点拆分，不按 DAO/domain/controller 等开发分层拆分。
+- 每个排期任务块控制在 `0.5 人日` 到 `2 人日`，并标注范围边界、依赖、关键路径与待对齐影响。
+- 问题清单包含 `对齐状态`、`对齐内容`、`影响更新` 三列；对齐状态支持 `待对齐` / `定` / `改需求` / `挂起` / `不做`。
+- 表结构设计内置 MySQL DDL/DML 工程规范，覆盖引擎字符集、命名、主键、必备时间字段、字段类型、索引、改表、大表风险、DML 和发布审查；不依赖本机 `/Users/zz/Documents/...` 下的原始规范文件。
+- 模块方案、用户确认视图、写入飞书文档等节点，能用流程图表达的尽量附 Mermaid 流程图或时序图，并保留到评审文档中。
+
 ## Update Workflow
+
+### Update Existing Claude Code Command Locally
+
+如果使用推荐的软链接安装方式，只需要拉取或修改本仓库即可；新开 Claude Code 会话后使用最新 command。
+
+如果使用复制安装方式，更新仓库后重新复制：
+
+```bash
+cp .claude/commands/planAlign.md ~/.claude/commands/planAlign.md
+```
 
 ### Add A New AI Capability
 
@@ -97,6 +117,8 @@ codex plugin add didala-plugin@didala-ai
 ```bash
 codex plugin add didala-plugin@didala-ai
 ```
+
+安装或更新后，建议新开一个 Codex thread，让 Codex 重新加载插件能力。
 
 ## Notes
 

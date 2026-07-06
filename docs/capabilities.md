@@ -2,7 +2,7 @@
 
 | Ability | Claude Code | Codex | Status | Purpose |
 |---|---|---|---|---|
-| `planAlign` / `plan-align` | `.claude/commands/planAlign.md` | `plugins/didala-plugin/skills/plan-align/SKILL.md` | Active | 飞书需求评审、方案设计、依赖检查、排期与评审文档回写 |
+| `planAlign` / `plan-align` | `.claude/commands/planAlign.md` | `plugins/didala-plugin/skills/plan-align/SKILL.md` | Active | 飞书需求评审、问题对齐、方案设计、流程图呈现、表结构规范、功能需求点排期与评审文档回写 |
 
 ## Capability Template
 
