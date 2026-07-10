@@ -1,6 +1,6 @@
 {
   "name": "didala-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Reusable AI workflow skills shared across Codex and Claude Code.",
   "author": {
     "name": "zhangyu"
@@ -11,13 +11,15 @@
     "claude-code",
     "ai-workflow",
     "lark",
-    "planning"
+    "planning",
+    "git",
+    "worktree"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Didala Plugin",
     "shortDescription": "Personal AI workflows for review, design, and delivery.",
-    "longDescription": "Didala Plugin collects reusable AI workflows that can be installed in Codex and mirrored for Claude Code. The first workflow, plan-align, helps with requirement review, solution design, dependency analysis, scheduling, and Lark document write-back.",
+    "longDescription": "Didala Plugin collects reusable AI workflows that can be installed in Codex and mirrored for Claude Code. It includes plan-align for requirement review, solution design, dependency analysis, scheduling, and Lark document write-back, plus worktree-flow for safe Git worktree creation and cleanup.",
     "developerName": "zhangyu",
     "category": "Productivity",
     "capabilities": [
@@ -28,7 +30,9 @@
     "defaultPrompt": [
       "Use plan-align to review this Lark requirement",
       "Use plan-align to design one module",
-      "Use plan-align to re-review changed requirements"
+      "Use plan-align to re-review changed requirements",
+      "Use worktree-flow to create a worktree for this feature",
+      "Use worktree-flow to clean current project worktrees"
     ],
     "brandColor": "#2563EB"
   }

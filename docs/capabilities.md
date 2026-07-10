@@ -3,6 +3,7 @@
 | Ability | Claude Code | Codex | Status | Purpose |
 |---|---|---|---|---|
 | `planAlign` / `plan-align` | `.claude/commands/planAlign.md` | `plugins/didala-plugin/skills/plan-align/SKILL.md` | Active | 飞书需求评审、问题对齐、方案设计、流程图呈现、表结构规范、功能需求点排期与评审文档回写 |
+| `worktreeNew` / `worktreeClean` / `worktree-flow` | `.claude/commands/worktreeNew.md`, `.claude/commands/worktreeClean.md` | `plugins/didala-plugin/skills/worktree-flow/SKILL.md` | Active | 安全创建和清理当前项目的 Git worktree，统一放到 `/Users/zz/worktree`，清理前检查未合并分支和未提交内容 |
 
 ## Capability Template
 
