@@ -1,6 +1,6 @@
 ---
-description: 安全清理当前 Git 项目在 /Users/zz/worktree 下的 worktree
-argument-hint: [--delete-unmerged-branches]
+description: 安全清理当前 Git 项目在 /Users/zz/worktree 下的 worktree 和残留目录
+argument-hint: [--delete-unmerged-branches] [--delete-residual-dirs]
 allowed-tools: Bash, AskUserQuestion
 ---
 
@@ -109,6 +109,49 @@ git branch -D <branch_name>
 
 这个动作必须逐项列出分支名，并取得用户确认；不要批量静默强删。
 
+## 残留目录处理
+
+`git worktree remove` 成功后，必须检查原 worktree 路径是否仍然存在：
+
+```bash
+test -e <worktree_path>
+```
+
+如果路径不存在，记录为 `无残留`。
+
+如果路径仍然存在，按以下步骤处理：
+
+1. 再次确认该路径已经不在 `git worktree list --porcelain` 输出中。
+   - 如果仍在列表中，说明 `git worktree remove` 没有真正完成，停止并报告，不要删除目录。
+2. 再次确认路径安全：
+   - 路径必须在 `/Users/zz/worktree/` 下。
+   - basename 必须匹配 `<project_name>_worktree_<slug>`。
+   - 不能是当前主工作区。
+3. 检查是否还存在 Git 指针：
+   - `test -e <worktree_path>/.git`
+   - 如果 `.git` 文件或目录仍存在，停止并报告，不要 `rm -rf`。
+4. 列出残留内容给用户查看，优先用浅层列表：
+   - `find <worktree_path> -maxdepth 2 -mindepth 1 -print`
+5. 说明常见原因：IDEA 打开目录、`.idea` 文件、ignored 构建产物、`.DS_Store`、日志文件等。
+6. 只有在以下任一条件满足时，才允许删除这个残留普通目录：
+   - 用户输入包含 `--delete-residual-dirs`，并且你已经展示残留内容后再次确认。
+   - 用户明确确认删除该残留目录。
+7. 用户确认后执行：
+
+```bash
+rm -rf -- <worktree_path>
+```
+
+删除后再次检查：
+
+```bash
+test -e <worktree_path>
+```
+
+如果仍存在，提示用户关闭 IDEA 或相关进程后重试。
+
+残留目录删除只适用于已经成功从 Git worktree 列表中移除的路径。不要对仍被 Git 识别为 worktree 的目录执行 `rm -rf`。
+
 ## 完成后输出
 
 输出清理结果表：
@@ -117,6 +160,7 @@ git branch -D <branch_name>
 - 分支名
 - 合并状态
 - 工作区状态
-- 执行动作：删除 worktree / 删除分支 / 保留分支 / 跳过
+- 执行动作：删除 worktree / 删除分支 / 保留分支 / 删除残留目录 / 保留残留目录 / 跳过
+- 残留状态：无残留 / 有残留已删 / 有残留保留 / 残留删除失败
 
 如果没有候选 worktree，说明当前项目没有符合本工作流命名规则的 worktree。

@@ -61,9 +61,30 @@ description: 安全创建和清理 Git worktree。Use when the user asks to crea
 
 默认不要删除未合并分支。只有用户明确要求“彻底删除未合并分支”或传入 `--delete-unmerged-branches`，并再次确认后，才允许在删除 worktree 后执行 `git branch -D <branch>`。
 
+## 残留目录处理
+
+`git worktree remove` 成功后，检查原路径是否仍然存在：`test -e <worktree_path>`。
+
+如果目录不存在，记录为无残留。
+
+如果目录仍然存在，说明可能有 IDEA、ignored 构建产物、`.idea`、`.DS_Store`、日志文件等残留。此时按下面规则处理：
+
+1. 再次确认该路径已经不在 `git worktree list --porcelain` 输出中。
+   - 如果仍在列表中，停止并报告；不要删除目录。
+2. 再次确认路径在 `/Users/zz/worktree/` 下，basename 匹配 `<project_name>_worktree_<slug>`，且不是当前主工作区。
+3. 检查 `<worktree_path>/.git`。
+   - 如果 `.git` 文件或目录仍存在，停止并报告；不要 `rm -rf`。
+4. 用 `find <worktree_path> -maxdepth 2 -mindepth 1 -print` 列出残留内容。
+5. 提醒用户如果 IDEA 仍打开该目录，建议先关闭对应项目窗口。
+6. 只有用户明确确认，或用户传入 `--delete-residual-dirs` 后你再次确认，才执行：
+   - `rm -rf -- <worktree_path>`
+7. 删除后再次检查路径是否还存在；如果仍存在，提示用户关闭 IDEA 或相关进程后重试。
+
+残留目录删除只适用于已经成功从 Git worktree 列表中移除的路径。不要对仍被 Git 识别为 worktree 的目录执行 `rm -rf`。
+
 ## 禁止事项
 
-- 不要使用 `rm -rf` 删除 worktree 目录。
+- 不要使用 `rm -rf` 删除仍被 Git 识别为 worktree 的目录。
 - 不要处理当前主工作区。
 - 不要处理不在 `/Users/zz/worktree/` 下的目录。
 - 不要处理不符合 `<project_name>_worktree_*` 和 `worktree_*` 命名规则的 worktree。
@@ -83,6 +104,6 @@ description: 安全创建和清理 Git worktree。Use when the user asks to crea
 
 清理完成后输出：
 
-| worktree 目录 | 分支 | 合并状态 | 工作区状态 | 动作 |
-|---|---|---|---|---|
-| ... | ... | 已合并/未合并 | 干净/有未提交内容 | 删除 worktree / 删除分支 / 保留分支 / 跳过 |
+| worktree 目录 | 分支 | 合并状态 | 工作区状态 | 动作 | 残留状态 |
+|---|---|---|---|---|---|
+| ... | ... | 已合并/未合并 | 干净/有未提交内容 | 删除 worktree / 删除分支 / 保留分支 / 跳过 | 无残留 / 有残留已删 / 有残留保留 / 残留删除失败 |

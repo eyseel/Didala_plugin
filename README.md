@@ -52,6 +52,7 @@ ln -sf "$(pwd)/.claude/commands/worktreeClean.md" ~/.claude/commands/worktreeCle
 /worktreeNew 重构订单结算流程
 /worktreeClean
 /worktreeClean --delete-unmerged-branches
+/worktreeClean --delete-residual-dirs
 ```
 
 推荐使用软链接；后续更新仓库后，Claude Code command 会直接读到最新内容。如果不想用软链接，也可以复制文件：
@@ -108,7 +109,8 @@ codex plugin add didala-plugin@didala-ai
 - 清理 worktree 时，只处理路径在 `/Users/zz/worktree/` 且目录名、分支名符合本工作流规则的条目。
 - 已合并且干净的 worktree 会直接删除，并删除对应 `worktree_*` 分支。
 - 未合并或有未提交内容的 worktree 会先提醒并等待确认；未合并分支默认保留，仍可后续合并或重新挂载 worktree。
-- 默认不用 `rm -rf` 清理 worktree；统一通过 `git worktree remove` 处理。
+- worktree 删除后会检查原目录是否还有 IDEA、ignored 构建产物、`.DS_Store`、日志等残留；只有确认该路径已不在 `git worktree list` 且没有 `.git` 指针后，才会在用户确认下删除残留普通目录。
+- 默认不用 `rm -rf` 清理仍被 Git 识别的 worktree；统一先通过 `git worktree remove` 处理。
 
 ## Update Workflow
 
