@@ -4,6 +4,7 @@
 
 - `planAlign` / `plan-align`：用于飞书需求评审、方案设计、跨需求依赖检查、按功能模块需求点排期，并在用户确认后回写飞书评审文档。
 - `worktreeNew` / `worktreeClean` / `worktree-flow`：用于安全创建和清理当前项目的 Git worktree，统一放到 `/Users/zz/worktree`。
+- `waveDemo`：用两个 Claude Code CLI Agent 演示“串行创建 worktree、并行执行、记录 manifest、等待并核验结果”的最小调度器。
 
 ## Repository Layout
 
@@ -13,6 +14,7 @@
 ├── .claude/commands/planAlign.md
 ├── .claude/commands/worktreeClean.md
 ├── .claude/commands/worktreeNew.md
+├── .claude/commands/waveDemo.md
 ├── docs/capabilities.md
 └── plugins/didala-plugin
     ├── .codex-plugin/plugin.json
@@ -24,6 +26,7 @@
 - `.claude/commands/planAlign.md`: Claude Code command 源文件。
 - `.claude/commands/worktreeNew.md`: Claude Code 新建 worktree command。
 - `.claude/commands/worktreeClean.md`: Claude Code 清理 worktree command。
+- `.claude/commands/waveDemo.md`: Claude Code 双 Agent worktree wave 调度演示命令。
 - `plugins/didala-plugin`: Codex 插件根目录。
 - `plugins/didala-plugin/skills/plan-align/SKILL.md`: Codex skill 版本。
 - `plugins/didala-plugin/skills/worktree-flow/SKILL.md`: Codex worktree workflow 版本。
@@ -38,6 +41,7 @@ mkdir -p ~/.claude/commands
 ln -sf "$(pwd)/.claude/commands/planAlign.md" ~/.claude/commands/planAlign.md
 ln -sf "$(pwd)/.claude/commands/worktreeNew.md" ~/.claude/commands/worktreeNew.md
 ln -sf "$(pwd)/.claude/commands/worktreeClean.md" ~/.claude/commands/worktreeClean.md
+ln -sf "$(pwd)/.claude/commands/waveDemo.md" ~/.claude/commands/waveDemo.md
 ```
 
 使用方式：
@@ -53,6 +57,8 @@ ln -sf "$(pwd)/.claude/commands/worktreeClean.md" ~/.claude/commands/worktreeCle
 /worktreeClean
 /worktreeClean --delete-unmerged-branches
 /worktreeClean --delete-residual-dirs
+
+/waveDemo
 ```
 
 推荐使用软链接；后续更新仓库后，Claude Code command 会直接读到最新内容。如果不想用软链接，也可以复制文件：
@@ -61,6 +67,7 @@ ln -sf "$(pwd)/.claude/commands/worktreeClean.md" ~/.claude/commands/worktreeCle
 cp .claude/commands/planAlign.md ~/.claude/commands/planAlign.md
 cp .claude/commands/worktreeNew.md ~/.claude/commands/worktreeNew.md
 cp .claude/commands/worktreeClean.md ~/.claude/commands/worktreeClean.md
+cp .claude/commands/waveDemo.md ~/.claude/commands/waveDemo.md
 ```
 
 复制安装时，每次仓库更新后都需要重新执行上述 `cp` 命令。
@@ -112,6 +119,48 @@ codex plugin add didala-plugin@didala-ai
 - worktree 删除后会检查原目录是否还有 IDEA、ignored 构建产物、`.DS_Store`、日志等残留；只有确认该路径已不在 `git worktree list` 且没有 `.git` 指针后，才会在用户确认下删除残留普通目录。
 - 默认不用 `rm -rf` 清理仍被 Git 识别的 worktree；统一先通过 `git worktree remove` 处理。
 
+## Wave Demo Behavior
+
+`/waveDemo` 是一个刻意简化的学习工具，而不是通用任务执行器。
+
+- 编排文档逐个调用 Claude Code 原生 `Agent(isolation="worktree", run_in_background=true)`，因此 runtime 负责创建、绑定和运行每个 worktree Agent；创建 Agent B 时，Agent A 已经在运行。
+- 某些 Claude Code runtime 会从 primary checkout 而非调用命令的 feature branch 初始化 worktree。Agent 在修改前会先确认它处于全新的 `worktree-agent-*` 分支且干净，然后仅在该隔离分支执行一次 `git reset --hard <expected_base>` 校正基线；绝不重置主工作区或受保护分支。
+- 运行 manifest 写入当前仓库根目录的 `METAIN.md`。每个启动 metadata 对象包含 `agent_id`、`worktree_path`、`branch` 与 `expected_base`；worker 不得写这个共享文件。
+- 等待阶段通过 `TaskOutput` 和 completion notification；最终还会检查分支是否从 base 前进、预期文件是否已提交、worktree 是否干净，避免只相信文本“完成”通知。
+- demo 有意保留分支和 worktree，不会自动 merge 或 cleanup。先检查 `METAIN.md` 与日志，再手动练习下一阶段。
+
+worktree 根目录由 Claude Code 的 `WorktreeCreate` hook 决定，不由命令参数传入。若 Agent 启动响应没有完整 metadata，命令会安全停止，不通过扫描 worktree 猜测归属。
+
+### Claude Code runtime prerequisite
+
+要让原生 Agent worktree 同时基于当前 feature 分支、并放到项目外的统一目录，在用户级
+`~/.claude/settings.json` 中保留既有配置并合并以下两个字段：
+
+```json
+{
+  "worktree": {
+    "base": "head"
+  },
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "set -euo pipefail; repo=\"$(git rev-parse --show-toplevel)\"; cd \"$repo\"; root=/Users/zz/worktree/wareTreeDemo; mkdir -p \"$root\"; id=\"$(date -u +%Y%m%dT%H%M%S)-$$\"; path=\"$root/agent-$id\"; branch=\"worktree-agent-$id\"; git worktree add -b \"$branch\" \"$path\" HEAD >&2; printf '%s\\n' \"$path\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+不要用这段 JSON 覆盖整个 settings 文件：将 `worktree` 字段加入顶层，并把
+`WorktreeCreate` 条目合并进已有的 `hooks` 对象。hook 必须只在 stdout 最后一行输出
+已创建的绝对目录；上面的 `git worktree add` 输出被重定向到 stderr。Claude Code 会把
+这个目录绑定给 Agent；没有配置 `WorktreeRemove` 时，runtime 的默认 Git 清理路径仍可用。
+
 ## Update Workflow
 
 ### Update Existing Claude Code Command Locally
@@ -124,6 +173,7 @@ codex plugin add didala-plugin@didala-ai
 cp .claude/commands/planAlign.md ~/.claude/commands/planAlign.md
 cp .claude/commands/worktreeNew.md ~/.claude/commands/worktreeNew.md
 cp .claude/commands/worktreeClean.md ~/.claude/commands/worktreeClean.md
+cp .claude/commands/waveDemo.md ~/.claude/commands/waveDemo.md
 ```
 
 ### Add A New AI Capability
