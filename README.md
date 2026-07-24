@@ -5,6 +5,7 @@
 - `planAlign` / `plan-align`：用于飞书需求评审、方案设计、跨需求依赖检查、按功能模块需求点排期，并在用户确认后回写飞书评审文档。
 - `worktreeNew` / `worktreeClean` / `worktree-flow`：用于安全创建和清理当前项目的 Git worktree，统一放到 `/Users/zz/worktree`。
 - `waveDemo`：用两个 Claude Code CLI Agent 演示“串行创建 worktree、并行执行、记录 manifest、等待并核验结果”的最小调度器。
+- `dbSchema`：从本地配置中识别数据库连接，用户确认后只读导出全表 DDL，并基于 DDL 完成指定任务。
 
 ## Repository Layout
 
@@ -12,6 +13,8 @@
 .
 ├── .agents/plugins/marketplace.json
 ├── .claude/commands/planAlign.md
+├── .claude/commands/dbSchema.md
+├── .claude/scripts/db_schema_helper.py
 ├── .claude/commands/worktreeClean.md
 ├── .claude/commands/worktreeNew.md
 ├── .claude/commands/waveDemo.md
@@ -24,6 +27,8 @@
 ```
 
 - `.claude/commands/planAlign.md`: Claude Code command 源文件。
+- `.claude/commands/dbSchema.md`: Claude Code 数据库 Schema 获取与后续任务 command 源文件。
+- `.claude/scripts/db_schema_helper.py`: dbSchema 的本地辅助程序，负责脱敏解析、短连接导出和临时资源清理。
 - `.claude/commands/worktreeNew.md`: Claude Code 新建 worktree command。
 - `.claude/commands/worktreeClean.md`: Claude Code 清理 worktree command。
 - `.claude/commands/waveDemo.md`: Claude Code 双 Agent worktree wave 调度演示命令。
@@ -38,7 +43,10 @@
 
 ```bash
 mkdir -p ~/.claude/commands
+mkdir -p ~/.claude/scripts
 ln -sf "$(pwd)/.claude/commands/planAlign.md" ~/.claude/commands/planAlign.md
+ln -sf "$(pwd)/.claude/commands/dbSchema.md" ~/.claude/commands/dbSchema.md
+ln -sf "$(pwd)/.claude/scripts/db_schema_helper.py" ~/.claude/scripts/db_schema_helper.py
 ln -sf "$(pwd)/.claude/commands/worktreeNew.md" ~/.claude/commands/worktreeNew.md
 ln -sf "$(pwd)/.claude/commands/worktreeClean.md" ~/.claude/commands/worktreeClean.md
 ln -sf "$(pwd)/.claude/commands/waveDemo.md" ~/.claude/commands/waveDemo.md
@@ -51,6 +59,9 @@ ln -sf "$(pwd)/.claude/commands/waveDemo.md" ~/.claude/commands/waveDemo.md
 /planAlign <飞书需求链接> 背景:...
 /planAlign 复评 <飞书需求链接>
 /planAlign 方案:<模块名>
+
+/dbSchema ./deploy/application-prod.xml | 为订单退款增加一张流水表，并给出迁移与回滚 SQL
+/dbSchema /tmp/service-config | 分析现有表结构，设计会员等级功能的改表方案
 
 /worktreeNew 修复登录回调问题
 /worktreeNew 重构订单结算流程
@@ -65,6 +76,9 @@ ln -sf "$(pwd)/.claude/commands/waveDemo.md" ~/.claude/commands/waveDemo.md
 
 ```bash
 cp .claude/commands/planAlign.md ~/.claude/commands/planAlign.md
+cp .claude/commands/dbSchema.md ~/.claude/commands/dbSchema.md
+mkdir -p ~/.claude/scripts
+cp .claude/scripts/db_schema_helper.py ~/.claude/scripts/db_schema_helper.py
 cp .claude/commands/worktreeNew.md ~/.claude/commands/worktreeNew.md
 cp .claude/commands/worktreeClean.md ~/.claude/commands/worktreeClean.md
 cp .claude/commands/waveDemo.md ~/.claude/commands/waveDemo.md
@@ -107,6 +121,20 @@ codex plugin add didala-plugin@didala-ai
 - 问题清单包含 `对齐状态`、`对齐内容`、`影响更新` 三列；对齐状态支持 `待对齐` / `定` / `改需求` / `挂起` / `不做`。
 - 表结构设计内置 MySQL DDL/DML 工程规范，覆盖引擎字符集、命名、主键、必备时间字段、字段类型、索引、改表、大表风险、DML 和发布审查；不依赖本机 `/Users/zz/Documents/...` 下的原始规范文件。
 - 模块方案、用户确认视图、写入飞书文档等节点，能用流程图表达的尽量附 Mermaid 流程图或时序图，并保留到评审文档中。
+
+## Current dbSchema Behavior
+
+- 调用格式为 `/dbSchema <配置文件或目录路径> | <要做什么>`；命令通过本地辅助程序优先从 XML（Spring/MyBatis datasource property、JDBC URL、CDATA 等）识别连接，也支持 YAML、properties、env、JSON、TOML 等常见本地配置。
+- 安装时 command 与辅助程序必须一起安装；辅助程序位于 `~/.claude/scripts/db_schema_helper.py`，因此从任意 Claude 项目调用全局 command 时都能定位到它。
+- 目前原生支持 MySQL、MariaDB 与 PostgreSQL。配置中有多个 datasource 时会先让用户选择；缺失或未展开的连接信息不会猜测或连接。
+- 配置文件不会由 Claude 读取，辅助程序只返回脱敏后的类型、主机端口、数据库/schema、用户名与来源文件；用户明确确认后才会做连通性测试或导出，因此密码不会进入模型上下文或 Bash 调用记录。
+- 连接确认前，command 会在普通对话中固定展示一张脱敏目标表（类型、主机端口、数据库、schema、用户名、来源与只读范围）；确认弹窗也会重复主机端口和数据库名，不依赖折叠的工具输出。
+- 标准 MyBatis Generator `<jdbcConnection connectionURL="..." userId="..." password="..."/>` 会被解析；仅含表名、没有该连接节点的 `generatorConfig.xml` 会被识别为“非数据源配置”。KMS、加密值、环境变量或配置中心托管的数据源会被识别为“受保护配置”。无法连接的情形都会输出脱敏诊断并停止，不会扩大扫描范围、猜测连接信息或伪造 DDL。
+- Schema 获取全程只读、不导出数据。MySQL/MariaDB 仅导出基础表，采用 `--single-transaction --skip-lock-tables` 避免 `LOCK TABLES` 权限问题，并关闭 MySQL GTID 写入；不使用 `--skip-comments`，保留真实表/字段注释。PostgreSQL 导出指定或非系统 schema 的表及其必要约束、索引、序列等定义。
+- 导出同时生成字段说明字典（字段、类型、可空、默认值、数据库 `COLUMN_COMMENT` / PostgreSQL 列注释）。AI 展示 schema 时必须同时呈现完整 DDL 与该字典；空说明明确标为“数据库未维护”，不会猜测补全。
+- 每次数据库访问都是带超时的前台、非交互式客户端进程；不会建立连接池或后台连接，客户端退出即关闭连接。MySQL 使用权限 `0600` 的临时 option file，PostgreSQL 使用权限 `0600` 的临时 `.pgpass`，子进程结束即删除。
+- 数据库客户端优先从 `PATH` 查找；macOS 上会自动识别 Homebrew 的 `/opt/homebrew/opt/mysql-client/bin`、`/opt/homebrew/opt/mariadb/bin`、`/opt/homebrew/opt/libpq/bin`（及 Intel Mac 的 `/usr/local` 对应目录），无需额外修改 shell `PATH`。也可用 `DIDALA_DB_CLIENT_BIN` 指定自定义客户端目录。
+- DDL 放在权限受限的临时文件中供当前任务读取；默认在任务结束时删除。任何后续写库动作都需要再次明确确认。
 
 ## Current worktree Behavior
 
